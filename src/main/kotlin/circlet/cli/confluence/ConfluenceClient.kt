@@ -118,7 +118,7 @@ class ConfluenceClient(private val host: String, private val credentials: Creden
         .body()
 
     private fun buildUrl(path: String, queryParameters: Map<String, Any> = emptyMap()) = URLBuilder().apply {
-        host = this@ConfluenceClient.host
+        takeFrom(this@ConfluenceClient.host)
         appendPathSegments(path.removePrefix("/").split("/"))
         queryParameters.forEach { (name, value) -> parameters.append(name, value.toString()) }
     }.buildString()
