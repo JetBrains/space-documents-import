@@ -1,23 +1,92 @@
-job("Build, run tests and push to public.jetbrains.space registry (latest)") {
+job("Build and push docker image") {
     startOn {
         gitPush {
             branchFilter = "refs/heads/main"
         }
     }
-
-    docker("Push to public.jetbrains.space registry") {
-        env["REGISTRY_USER"] = Secrets("public-jetbrains-space-issues-import-publisher-client-id")
-        env["REGISTRY_TOKEN"] = Secrets("public-jetbrains-space-issues-import-publisher-token")
-
-        beforeBuildScript {
-            content = """
-                B64_AUTH=${'$'}(echo -n ${'$'}REGISTRY_USER:${'$'}REGISTRY_TOKEN | base64 -w 0)
-                echo "{\"auths\":{\"public.registry.jetbrains.space\":{\"auth\":\"${'$'}B64_AUTH\"}}}" > ${'$'}DOCKER_CONFIG/config.json
-            """.trimIndent()
+    
+    val registry = "public.registry.jetbrains.space"
+    val imageName = "$registry/p/space/containers/space-documents-import"
+    val armTag = "arm64"
+    val x86Tag = "amd64"
+    
+    val dockerLogin: () -> String = {
+        """
+            export DOCKER_CONFIG=/tmp/docker.json
+            echo ${'$'}REGISTRY_TOKEN | docker login --username ${'$'}REGISTRY_USER --password-stdin $registry
+        """.trimIndent()
+    }
+    val dockerBuildPush: (archTag: String) -> String = { archTag ->
+        """
+            docker build -t $imageName:${'$'}JB_SPACE_EXECUTION_NUMBER-$archTag .
+            docker push $imageName:${'$'}JB_SPACE_EXECUTION_NUMBER-$archTag
+        """.trimIndent()
+    }
+    
+    parallel {
+        host("Build ARM64 image") {
+            env["REGISTRY_USER"] = Secrets("public-jetbrains-space-issues-import-publisher-client-id")
+            env["REGISTRY_TOKEN"] = Secrets("public-jetbrains-space-issues-import-publisher-token")
+            shellScript {
+                content = """
+                    ${dockerLogin()}
+                    ${dockerBuildPush(armTag)}
+                """.trimIndent()
+            }
+            requirements {
+                os {
+                    type = OSType.Linux
+                    arch = "aarch64"
+                }
+                workerTags("linux-arm64")
+            }
         }
 
-        build()
+        host("Build X86 image") {
+            env["REGISTRY_USER"] = Secrets("public-jetbrains-space-issues-import-publisher-client-id")
+            env["REGISTRY_TOKEN"] = Secrets("public-jetbrains-space-issues-import-publisher-token")
+            shellScript {
+                content = """
+                    ${dockerLogin()}
+                    ${dockerBuildPush(x86Tag)}
+                """.trimIndent()
+            }
+            requirements {
+                os {
+                    type = OSType.Linux
+                    arch = "amd64"
+                }
+            }
+        }
+    }
+    
+    host("Build and publish multiarch manifest") {
+        env["REGISTRY_USER"] = Secrets("public-jetbrains-space-issues-import-publisher-client-id")
+        env["REGISTRY_TOKEN"] = Secrets("public-jetbrains-space-issues-import-publisher-token")
+        shellScript {
+            content = """
+                ${dockerLogin()}
 
-        push("public.registry.jetbrains.space/p/space/containers/space-documents-import")
+                docker manifest rm $imageName:${'$'}JB_SPACE_EXECUTION_NUMBER
+                docker manifest create $imageName:${'$'}JB_SPACE_EXECUTION_NUMBER \
+                  $imageName:${'$'}JB_SPACE_EXECUTION_NUMBER-$armTag \
+                  $imageName:${'$'}JB_SPACE_EXECUTION_NUMBER-$x86Tag
+                docker manifest push $imageName:${'$'}JB_SPACE_EXECUTION_NUMBER
+
+                docker manifest rm $imageName:latest
+                docker manifest create $imageName:latest \
+                  $imageName:${'$'}JB_SPACE_EXECUTION_NUMBER-$armTag \
+                  $imageName:${'$'}JB_SPACE_EXECUTION_NUMBER-$x86Tag
+                docker manifest push $imageName:latest
+                docker system prune -a -f
+            """.trimIndent()
+        }
+        requirements {
+            os {
+                type = OSType.Linux
+                arch = "aarch64"
+            }
+            workerTags("linux-arm64")
+        }
     }
 }
