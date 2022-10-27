@@ -9,7 +9,8 @@ Here you can find a list of supported import sources and sample code.
 
 ### From Confluence
 ```
-$ docker run public.registry.jetbrains.space/p/space/containers/space-documents-import:latest confluence \
+$ docker run --rm -it \
+        public.registry.jetbrains.space/p/space/containers/space-documents-import confluence \
         --confluence-host https://<confluenceHost> \
         --confluence-space-key "<spaceKey>" \
         --confluence-username <confluenceUsername> \
@@ -21,8 +22,10 @@ $ docker run public.registry.jetbrains.space/p/space/containers/space-documents-
 
 ### From folder with files
 ```
-$ docker run public.registry.jetbrains.space/p/space/containers/space-documents-import:latest folder \
-        --folder <folderPath> \
+$ docker run --rm -it \
+        -v <localFolderPath>:/root/documents
+        public.registry.jetbrains.space/p/space/containers/space-documents-import folder \
+        --folder /root/documents \
         --space-server https://<domain>.jetbrains.space \
         --space-project-key <spaceProjectKey> \
         --space-token <spaceAccessToken>
