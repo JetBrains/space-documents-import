@@ -1,46 +1,22 @@
 package circlet.cli.confluence
 
-import com.github.ajalt.clikt.core.CliktCommand
+import circlet.cli.SpaceCommand
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
-import io.ktor.client.engine.apache.*
-import io.ktor.client.plugins.*
-import kotlinx.coroutines.runBlocking
-import space.jetbrains.api.runtime.SpaceClient
-import space.jetbrains.api.runtime.ktorClientForSpace
 import space.jetbrains.api.runtime.resources.projects
 import space.jetbrains.api.runtime.types.*
 import java.util.*
 
-class ConfluenceCommand : CliktCommand(printHelpOnEmptyArgs = true) {
+class ConfluenceCommand : SpaceCommand() {
     private val confluenceHost by option("--confluence-host", help = "host of confluence instance").required()
     private val confluenceSpaceKey by option("--confluence-space-key", help = "key of space in confluence").required()
     private val confluenceUserName by option("--confluence-username", help = "username to authorize in confluence")
     private val confluencePassword by option("--confluence-password", help = "password to authorize in confluence")
-    private val spaceProjectKey by option("--space-project-key", help = "key of project in space").required()
-    private val spaceServer by option("--space-server",
-        help = "URL of the Space instance that you want to import into."
-    ).required()
-    private val spaceToken by option(
-        "--space-token",
-        help = "personal token for a Space account that has the Import Issues permission."
-    ).required()
 
     private val client by lazy { ConfluenceClient(confluenceHost, getAuth()) }
-    private val spaceClient by lazy { initializeSpaceClient() }
 
     private val confluenceIdToSpaceId = hashMapOf<Int, String>()
     private val confluenceAliasToSpaceAlias = hashMapOf<String, String>()
-
-    private val spaceUrl by lazy {
-        spaceServer.let {
-            if (it.startsWith("http").not()) {
-                "https://$it"
-            } else {
-                it
-            }
-        }
-    }
 
     private val documentConverter by lazy {
         HtmlToMarkdownConverter(
@@ -50,29 +26,28 @@ class ConfluenceCommand : CliktCommand(printHelpOnEmptyArgs = true) {
         )
     }
 
-    override fun run() {
-        runBlocking {
-            val documents = client.getDocuments(confluenceSpaceKey)
-            documents.collect { migrateDocument(it) }
-            confluenceIdToSpaceId.map { (confluenceId, spaceId) ->
-                migrateDocumentContent(confluenceId, spaceId)
-            }
+    override suspend fun migrate() {
+        val documents = client.getDocuments(confluenceSpaceKey)
+        documents.collect { migrateDocument(it) }
+        confluenceIdToSpaceId.map { (confluenceId, spaceId) ->
+            migrateDocumentContent(confluenceId, spaceId)
         }
     }
 
     private suspend fun migrateDocument(document: DocumentInfo) {
         val isFolderIntroduction = client.getDocumentChild(document.id).isNotEmpty()
         val folder = getOrCreateFolder(document, isFolderIntroduction)
-        val uiLink = document.links["webui"] ?: throw IllegalArgumentException("Can't migrate document without webui link")
+        val uiLink = document.links["webui"]
+            ?: throw IllegalArgumentException("Can't migrate document without webui link")
         val createdDocument = spaceClient.projects.documents.createDocument(
-            project = ProjectIdentifier.Key(spaceProjectKey),
+            project = projectIdentifier,
             name = document.title,
             folder = FolderIdentifier.Id(folder.id),
             bodyIn = TextDocumentBodyCreateTypedIn(MdTextDocumentContent("Intermediate content"))
         )
         if (isFolderIntroduction) {
             spaceClient.projects.documents.folders.introduction.addFolderIntroduction(
-                project = ProjectIdentifier.Key(spaceProjectKey),
+                project = projectIdentifier,
                 folder = FolderIdentifier.Id(folder.id),
                 documentId = createdDocument.id
             )
@@ -85,7 +60,7 @@ class ConfluenceCommand : CliktCommand(printHelpOnEmptyArgs = true) {
         val confluenceDocument = client.getDocumentById(confluenceId)
         val convertedContent = documentConverter.convertDocument(confluenceDocument)
         spaceClient.projects.documents.updateDocument(
-            ProjectIdentifier.Key(spaceProjectKey),
+            projectIdentifier,
             spaceId,
             updateIn = TextDocumentBodyUpdateIn(convertedContent)
         )
@@ -104,10 +79,10 @@ class ConfluenceCommand : CliktCommand(printHelpOnEmptyArgs = true) {
 
     private suspend fun getOrCreateFolder(folderName: String, parent: FolderIdentifier): DocumentFolder {
         val subFolders = spaceClient.projects.documents.folders.subfolders.listSubfolders(
-            ProjectIdentifier.Key(spaceProjectKey), parent
+            projectIdentifier, parent
         ).data
         return subFolders.find { it.name == folderName } ?: spaceClient.projects.documents.folders.createFolder(
-            project = ProjectIdentifier.Key(spaceProjectKey),
+            project = projectIdentifier,
             folderName,
             parent
         )
@@ -123,20 +98,6 @@ class ConfluenceCommand : CliktCommand(printHelpOnEmptyArgs = true) {
             confluenceUserName == null -> null
             else -> throw IllegalArgumentException("Confluence username and password must be specified together")
         }
-    }
-
-    private fun initializeSpaceClient(): SpaceClient {
-
-        return SpaceClient(ktorClientForSpace(Apache) {
-            engine {
-                socketTimeout = 120_000
-                connectTimeout = 30_000
-                connectionRequestTimeout = 30_000
-            }
-            install(UserAgent) {
-                agent = "Space CLI client"
-            }
-        }, spaceUrl, spaceToken)
     }
 }
 

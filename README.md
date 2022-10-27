@@ -9,13 +9,22 @@ Here you can find a list of supported import sources and sample code.
 
 ### From Confluence
 ```
-$ docker run public.registry.jetbrains.space/p/space/containers/space-documents-import:latest confluence
-        --confluence-host https://<confluenceHost>
-        --confluence-space-key "<spaceKey>" 
-        --confluence-username <confluenceUsername> 
-        --confluence-password <confluencePassword> 
-        --space-server https://<domain>.jetbrains.space  
-        --space-project-key <spaceProjectKey> 
+$ docker run public.registry.jetbrains.space/p/space/containers/space-documents-import:latest confluence \
+        --confluence-host https://<confluenceHost> \
+        --confluence-space-key "<spaceKey>" \
+        --confluence-username <confluenceUsername> \
+        --confluence-password <confluencePassword> \
+        --space-server https://<domain>.jetbrains.space \
+        --space-project-key <spaceProjectKey> \
+        --space-token <spaceAccessToken>
+```
+
+### From folder with files
+```
+$ docker run public.registry.jetbrains.space/p/space/containers/space-documents-import:latest folder \
+        --folder <folderPath> \
+        --space-server https://<domain>.jetbrains.space \
+        --space-project-key <spaceProjectKey> \
         --space-token <spaceAccessToken>
 ```
 

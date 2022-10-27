@@ -1,6 +1,7 @@
 package circlet.cli
 
 import circlet.cli.confluence.ConfluenceCommand
+import circlet.cli.folder.FolderCommand
 import com.github.ajalt.clikt.completion.CompletionCommand
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.subcommands
@@ -10,7 +11,8 @@ fun main(args: Array<String>) {
     try {
         return Space().subcommands(
             ConfluenceCommand(),
-            CompletionCommand()
+            CompletionCommand(),
+            FolderCommand()
         ).main(args)
     } catch (e: Exception) {
         println("Error: ${e.message}")
@@ -20,7 +22,6 @@ fun main(args: Array<String>) {
 
 class Space : CliktCommand(printHelpOnEmptyArgs = true) {
     override fun run() {
-
     }
 }
 
