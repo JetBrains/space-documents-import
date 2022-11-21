@@ -23,7 +23,7 @@ $ docker run --rm -it \
 ### From folder with files
 ```
 $ docker run --rm -it \
-        -v <localFolderPath>:/root/documents
+        -v <localFolderPath>:/root/documents \
         public.registry.jetbrains.space/p/space/containers/space-documents-import folder \
         --folder /root/documents \
         --space-server https://<domain>.jetbrains.space \
