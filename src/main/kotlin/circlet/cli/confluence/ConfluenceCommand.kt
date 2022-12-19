@@ -5,6 +5,7 @@ import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import space.jetbrains.api.runtime.resources.projects
 import space.jetbrains.api.runtime.types.*
+import java.net.URL
 import java.util.*
 
 class ConfluenceCommand : SpaceCommand() {
@@ -21,7 +22,13 @@ class ConfluenceCommand : SpaceCommand() {
     private val documentConverter by lazy {
         HtmlToMarkdownConverter(
             SpaceDocumentsLinkResolver.Factory(
-                client, confluenceHost, confluenceSpaceKey, spaceClient, spaceUrl, spaceProjectKey, confluenceAliasToSpaceAlias
+                client,
+                if(confluenceHost.startsWith("http")) URL(confluenceHost).host else confluenceHost,
+                confluenceSpaceKey,
+                spaceClient,
+                spaceUrl,
+                spaceProjectKey,
+                confluenceAliasToSpaceAlias
             )
         )
     }

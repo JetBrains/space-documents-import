@@ -87,3 +87,18 @@ suspend fun SpaceClient.uploadBlob(filePath: Path): String {
 
     return response.body()
 }
+
+suspend fun SpaceClient.uploadImage(filePath: Path, fileName: String): String {
+    val uploadUrl = URLBuilder().apply {
+        takeFrom(server.serverUrl)
+        appendPathSegments("uploads")
+        parameters.append("name", fileName)
+    }.build()
+
+    val response = ktorClient.post(uploadUrl) {
+        bearerAuth(auth.token(ktorClient, appInstance).accessToken)
+        setBody(filePath.readChannel())
+    }
+
+    return response.body()
+}

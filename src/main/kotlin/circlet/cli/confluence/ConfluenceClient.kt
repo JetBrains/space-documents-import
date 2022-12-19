@@ -10,10 +10,13 @@ import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.jackson.*
+import io.ktor.util.cio.*
+import io.ktor.utils.io.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import org.jsoup.Jsoup
 import space.jetbrains.api.runtime.ktorClientForSpace
+import java.nio.file.Path
 
 class ConfluenceClient(private val host: String, private val credentials: Credentials?) {
     private val httpClient = ktorClientForSpace(Apache) {
@@ -31,6 +34,18 @@ class ConfluenceClient(private val host: String, private val credentials: Creden
         install(UserAgent) {
             agent = "Space CLI packages client"
         }
+    }
+
+    suspend fun downloadWithCredentials(url: String, path: Path) {
+        val response = httpClient.get(
+            url,
+            block = {
+                credentials?.let {
+                    header(HttpHeaders.Authorization, it.renderHeader())
+                }
+            }
+        )
+        response.bodyAsChannel().copyAndClose(path.toFile().writeChannel())
     }
 
     suspend fun getDocuments(spaceKey: String): Flow<DocumentInfo> {
@@ -61,7 +76,8 @@ class ConfluenceClient(private val host: String, private val credentials: Creden
             )
             .bodyAsText()
         val parsedTree = Jsoup.parse(htmlContent)
-        val fullName = parsedTree.getElementById("fullName")?.text() ?: throw IllegalArgumentException("User $username not found")
+        val fullName = parsedTree.getElementById("fullName")?.text()
+            ?: throw IllegalArgumentException("User $username not found")
         val email = parsedTree.getElementById("email")?.text()
         return UserData(fullName, if (email == null || email == "hidden") null else email)
     }
@@ -143,7 +159,7 @@ data class DocumentInfo(
 data class BodyInfo(
     val storage: ValueInfo?,
     @JsonProperty("export_view")
-    val exportView : ValueInfo?
+    val exportView: ValueInfo?
 )
 
 data class ValueInfo(val value: String)
