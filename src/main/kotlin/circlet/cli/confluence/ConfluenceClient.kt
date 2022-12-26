@@ -18,7 +18,7 @@ import org.jsoup.Jsoup
 import space.jetbrains.api.runtime.ktorClientForSpace
 import java.nio.file.Path
 
-class ConfluenceClient(private val host: String, private val credentials: Credentials?) {
+class ConfluenceClient(private val url: String, private val credentials: Credentials?) {
     private val httpClient = ktorClientForSpace(Apache) {
         engine {
             socketTimeout = 120_000
@@ -134,7 +134,7 @@ class ConfluenceClient(private val host: String, private val credentials: Creden
         .body()
 
     private fun buildUrl(path: String, queryParameters: Map<String, Any> = emptyMap()) = URLBuilder().apply {
-        takeFrom(this@ConfluenceClient.host)
+        takeFrom(this@ConfluenceClient.url)
         appendPathSegments(path.removePrefix("/").split("/"))
         queryParameters.forEach { (name, value) -> parameters.append(name, value.toString()) }
     }.buildString()

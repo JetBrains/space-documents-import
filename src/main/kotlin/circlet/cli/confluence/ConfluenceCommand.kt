@@ -3,18 +3,26 @@ package circlet.cli.confluence
 import circlet.cli.SpaceCommand
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
+import io.ktor.http.*
 import space.jetbrains.api.runtime.resources.projects
 import space.jetbrains.api.runtime.types.*
-import java.net.URL
 import java.util.*
 
 class ConfluenceCommand : SpaceCommand() {
-    private val confluenceHost by option("--confluence-host", help = "host of confluence instance").required()
+    private val confluenceUrl by option("--confluence-url", help = "url of confluence instance").required()
     private val confluenceSpaceKey by option("--confluence-space-key", help = "key of space in confluence").required()
     private val confluenceUserName by option("--confluence-username", help = "username to authorize in confluence")
     private val confluencePassword by option("--confluence-password", help = "password to authorize in confluence")
 
-    private val client by lazy { ConfluenceClient(confluenceHost, getAuth()) }
+    private val client by lazy {
+        val url = URLBuilder().apply {
+            takeFrom(confluenceUrl)
+            if (host.endsWith("atlassian.net")) {
+                encodedPath = "/wiki"
+            }
+        }.buildString()
+        ConfluenceClient(url, getAuth())
+    }
 
     private val confluenceIdToSpaceId = hashMapOf<Int, String>()
     private val confluenceAliasToSpaceAlias = hashMapOf<String, String>()
@@ -23,7 +31,7 @@ class ConfluenceCommand : SpaceCommand() {
         HtmlToMarkdownConverter(
             SpaceDocumentsLinkResolver.Factory(
                 client,
-                if(confluenceHost.startsWith("http")) URL(confluenceHost).host else confluenceHost,
+                URLBuilder(confluenceUrl).host,
                 confluenceSpaceKey,
                 spaceClient,
                 spaceUrl,

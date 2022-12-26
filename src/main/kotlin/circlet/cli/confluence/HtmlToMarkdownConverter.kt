@@ -90,6 +90,7 @@ class SpaceDocumentsLinkResolver(
     }
 
     private fun resolveImageLink(link: ResolvedLink): ResolvedLink {
+        if(!link.url.startsWith("http")) return link
         val url = URL(link.url)
         if (!url.path.startsWith("/download/attachments")) return link
         val blobId = withTempFile("attachments") {

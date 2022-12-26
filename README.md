@@ -11,7 +11,7 @@ Here you can find a list of supported import sources and sample code.
 ```
 $ docker run --rm -it \
         public.registry.jetbrains.space/p/space/containers/space-documents-import confluence \
-        --confluence-host https://<confluenceHost> \
+        --confluence-url https://<confluenceHost> \
         --confluence-space-key "<spaceKey>" \
         --confluence-username <confluenceUsername> \
         --confluence-password <confluencePassword> \
